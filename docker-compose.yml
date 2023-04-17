@@ -1,0 +1,42 @@
+version: "3.6"
+
+services:
+  auth:
+    container_name: auth-service-api
+    image: ranckosolutionsinc/auth-api:v1.0
+    # build: ./
+    restart: always
+    ports:
+      - 8888:8888
+    environment:
+      - PORT=${PORT}
+      - DB_URL=${DB_URL}
+      - NODE_ENV=${NODE_ENV}
+      - ACCESS_SECRET=${ACCESS_SECRET}
+      - REFRESH_SECRET=${REFRESH_SECRET}
+    networks:
+      - auth-service-network
+    depends_on:
+      - mongo
+
+  mongo:
+    container_name: auth-service-db
+    image: mongo:4.2
+    restart: always
+    ports:
+      - 27017:27017
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=${MONGO_INITDB_ROOT_USERNAME}
+      - MONGO_INITDB_ROOT_PASSWORD=${MONGO_INITDB_ROOT_PASSWORD}
+    volumes:
+      - auth-service-db-data:/data/db
+    networks:
+      - auth-service-network
+
+volumes:
+  auth-service-db-data:
+
+networks:
+  auth-service-network:
+    name: auth-service
+    driver: bridge
