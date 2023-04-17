@@ -1,6 +1,6 @@
-# Auth RESTful API
+# Auth Service
 
-This is a RESTful API for serving authentication requests for registering, logging in and logging out of applications.
+This is a RESTful API service for serving authentication requests for registering, logging in and logging out of applications.
 
 ## Technologies Used
 
