@@ -54,8 +54,31 @@ exports.Register = async (req, res) => {
   user
     .save()
     .then((doc) => {
-      const { password, isAdmin, ...data } = doc._doc;
-      res.status(201).json({ success: true, data: { user: data._id } });
+      const { password, isAdmin, isActive, isVerified, ...otherData } =
+        doc._doc;
+      res.status(201).json({
+        success: true,
+        data: {
+          message:
+            "User registered successfully. Please verify your email by clicking on the link sent to activate your account.",
+        },
+      });
+
+      const token = sign(
+        {
+          id: otherData._id,
+        },
+        ACCESS_SECRET,
+        { expiresIn: "30m" }
+      );
+
+      const CLIENT_URL = `${req.protocol}://${req.headers.host}`;
+
+      const data = {
+        username: otherData.username,
+        email: otherData.email,
+        url: `${CLIENT_URL}/api/v1/account/activate/${token}`,
+      };
 
       // Create RabbitMQ Connection
       amqplib.connect(RABBITMQ_URL, (connError, connection) => {
@@ -97,10 +120,82 @@ exports.Register = async (req, res) => {
     })
     .catch((err) => {
       console.log({ err });
-      return res
-        .status(500)
-        .json({ success: false, message: `Error saving user!` });
+      return res.status(500).json({
+        success: false,
+        message: `Error occurred while registering user!`,
+      });
     });
+};
+
+exports.activateAccount = async (req, res) => {
+  try {
+    const { token } = req.params;
+
+    let payload;
+
+    verify(token, ACCESS_SECRET, (err, data) => {
+      if (err) {
+        throw Error("Invalid token!");
+      }
+      payload = data;
+    });
+
+    if (!payload) {
+      return res.status(403).send({
+        success: false,
+        data: {
+          message: "Invalid token!",
+        },
+      });
+    }
+
+    const userVerified = await User.findOne({ _id: payload.id });
+    const { isActive, isVerified } = userVerified._doc;
+
+    if (isVerified && isActive) {
+      return res.status(500).send({
+        success: false,
+        data: {
+          message: `User already verified`,
+        },
+      });
+    }
+
+    const user = await User.findOneAndUpdate(
+      { _id: payload.id },
+      {
+        isActive: true,
+        isVerified: true,
+      },
+      { new: true }
+    );
+
+    if (!user) {
+      return res.status(403).send({
+        success: false,
+        data: {
+          message: "Invalid token!",
+        },
+      });
+    }
+
+    const { _id, username, ...data } = user._doc;
+
+    res.status(200).json({
+      success: true,
+      data: {
+        user: { _id, username },
+        message: "Account activated",
+      },
+    });
+  } catch (err) {
+    return res.status(500).send({
+      success: false,
+      data: {
+        message: `${err.message}`,
+      },
+    });
+  }
 };
 
 exports.Login = async (req, res) => {
@@ -179,9 +274,9 @@ exports.Login = async (req, res) => {
 
           // Send message to the queue
           const data = {
-            token: access_token
-          }
-          
+            token: access_token,
+          };
+
           channel.sendToQueue(
             QUEUE,
             Buffer.from(JSON.stringify(data), {
