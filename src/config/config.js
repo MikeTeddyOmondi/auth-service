@@ -1,5 +1,5 @@
 require("dotenv").config({
-	path: "./src/.env",
+	path: "./.env",
 	debug: process.env.NODE_ENV === "development" ? true : false,
 });
 

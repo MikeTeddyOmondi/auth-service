@@ -13,7 +13,7 @@ mongoose
 	.connect(DB_URL, {
 		useNewUrlParser: true,
 		useUnifiedTopology: true,
-		// authSource: "admin",
+		authSource: "admin",
 	})
 	.then(() => {
 		const app = express();
